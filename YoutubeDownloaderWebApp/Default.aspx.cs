@@ -154,7 +154,6 @@ namespace YoutubeDownloaderWebApp
                 if (File.Exists(srtPath))
                 {
                     lblStatus.Text = "A transcrição já existe na pasta.";
-                    lblStatus.ForeColor = System.Drawing.Color.Green;
                     ScriptManager.RegisterStartupScript(this, GetType(), "showInserirLegendaButton", "showInserirLegendaButton();", true);
                     btnInserirLegenda.Style["display"] = "inline-block"; // Mostrar o botão de inserir legenda
                     return;
@@ -163,7 +162,6 @@ namespace YoutubeDownloaderWebApp
                 await _transcriptionManager.SaveTranscriptionAsSrtAsync(videoUrl, downloadDirectory);
 
                 lblStatus.Text = "Transcrição baixada com sucesso!";
-                lblStatus.ForeColor = System.Drawing.Color.Green;
 
                 ScriptManager.RegisterStartupScript(this, GetType(), "showInserirLegendaButton", "showInserirLegendaButton();", true);
 
@@ -172,7 +170,6 @@ namespace YoutubeDownloaderWebApp
             catch (Exception ex)
             {
                 lblStatus.Text = $"Erro ao transcrever vídeo: {ex.Message}";
-                lblStatus.ForeColor = System.Drawing.Color.Red;
             }
         }
 
@@ -191,14 +188,18 @@ namespace YoutubeDownloaderWebApp
                 if (!File.Exists(videoFilePath))
                 {
                     lblStatus.Text = $"O vídeo não foi encontrado: {videoFilePath}";
-                    lblStatus.ForeColor = System.Drawing.Color.Red;
                     return;
                 }
 
                 if (!File.Exists(subtitleFilePath))
                 {
                     lblStatus.Text = $"A transcrição não foi encontrada: {subtitleFilePath}";
-                    lblStatus.ForeColor = System.Drawing.Color.Red;
+                    return;
+                }
+
+                if (File.Exists(outputFilePathBurned))
+                {
+                    lblStatus.Text = $"O vídeo com legenda já existe: {outputFilePathBurned}";
                     return;
                 }
 

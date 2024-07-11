@@ -1,0 +1,59 @@
+﻿body {
+    background-color: #121212;
+    color: #e0e0e0;
+    font-family: 'Poppins', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 800px;
+}
+
+.card {
+    background-color: #5b5b5b;
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    min-width: fit-content;
+}
+
+.input-group .form-control {
+    border-top-left-radius: 20px;
+    border-bottom-left-radius: 20px;
+}
+
+.input-group .btn-primary {
+    border-top-right-radius: 20px;
+    border-bottom-right-radius: 20px;
+}
+
+.btn-custom {
+    border-radius: 20px;
+    margin: 10px 5px;
+}
+
+.thumbnail {
+    border-radius: 10px;
+    width: 100%;
+}
+
+.alert-success {
+    background-color: #388e3c;
+    color: #ffffff;
+    border-color: #2e7d32;
+}
+
+.text-light {
+    color: #e0e0e0;
+}
+
+.text-info {
+    color: #17a2b8;
+}
+
+.logo{
+width: 75px;
+}
