@@ -8,6 +8,8 @@ using System.IO;
 using System.Diagnostics;
 using System.Text;
 using YoutubeExplode.Common;
+using System.Text.RegularExpressions;
+using System.Globalization;
 
 public class TranscriptionManager
 {
@@ -67,33 +69,71 @@ public class TranscriptionManager
     {
         var transcription = await GetVideoTranscriptionAsync(videoUrl);
         var videoInfo = await GetVideoInfoAsync(videoUrl);
-        var fileName = $"{videoInfo.Title}.srt";
+        var fileName = $"{TratarTextos.SanitizeFileName(videoInfo.Title)}.srt";
         var filePath = Path.Combine(directory, fileName);
 
         Directory.CreateDirectory(directory); // Ensure the directory exists
-        File.WriteAllText(filePath, transcription); // Synchronous method for .NET Framework
+
+        using (var writer = new StreamWriter(filePath, false))
+        {
+            await writer.WriteAsync(transcription);
+        }
     }
 
-    public void EmbedSubtitles(string videoFilePath, string subtitleFilePath, string outputFilePath, string ffmpegPath)
+    public async Task EmbedSubtitlesAsync(string videoFilePath, string subtitleFilePath, string outputFilePath, string ffmpegPath)
     {
-        var args = $"-i \"{videoFilePath}\" -vf subtitles=\"{subtitleFilePath}\" \"{outputFilePath}\"";
+        // Ensure the file paths are correctly formatted
+        videoFilePath = TratarTextos.FormatFilePath(videoFilePath);
+       // subtitleFilePath = TratarTextos.FormatFilePath(subtitleFilePath);
+        outputFilePath = TratarTextos.FormatFilePath(outputFilePath);
 
-        var process = new Process
+        //var args = $"-i \"{videoFilePath}\" -vf \"subtitles={subtitleFilePath}\" -c:a copy \"{outputFilePath}\"";
+        var args = $"-i \"{videoFilePath}\" -vf \"subtitles={subtitleFilePath}\" -c:a copy \"{outputFilePath}\"";
+
+
+
+        // Log the arguments to check them
+        Debug.WriteLine($"FFmpeg arguments: {args}");
+      
+
+        var processStartInfo = new ProcessStartInfo
         {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = ffmpegPath,
-                Arguments = args,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            }
+            FileName = ffmpegPath,
+            Arguments = args,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
         };
 
-        process.Start();
-        process.WaitForExit();
+        using (var process = new Process { StartInfo = processStartInfo })
+        {
+            process.Start();
+
+            // Read output and error streams asynchronously
+            var outputTask = Task.Run(() => process.StandardOutput.ReadToEndAsync());
+            var errorTask = Task.Run(() => process.StandardError.ReadToEndAsync());
+
+            process.WaitForExit(); // Wait for the process to exit
+
+            // Get the output and error messages
+            string output = await outputTask;
+            string error = await errorTask;
+
+            // Log the output and error to help debug
+            Debug.WriteLine($"FFmpeg output: {output}");
+        
+            Debug.WriteLine($"FFmpeg error: {error}");
+           
+
+            if (process.ExitCode != 0)
+            {
+                throw new Exception($"FFmpeg process exited with code {process.ExitCode}: {error}");
+            }
+        }
     }
+
+
 
     private string ExtractVideoId(string videoUrl)
     {
@@ -101,4 +141,5 @@ public class TranscriptionManager
         var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
         return query["v"] ?? uri.Segments.Last(); // Lida com URLs padrão e curtos
     }
+   
 }

@@ -56,15 +56,18 @@
                     <asp:LinkButton ID="btnDownload" runat="server" CssClass="btn btn-success ml-2" OnClick="BtnDownload_Click" style="display: none;">
                         <i class="bi bi-download"></i> Baixar Vídeo
                     </asp:LinkButton>
+                     <asp:LinkButton ID="btnTranscrever" runat="server" CssClass="btn btn-success ml-2" OnClick="BtnTranscrever_Click" style="display: none;">
+                         <i class="bi bi-file-earmark-text"></i> Baixar Transcrição
+                     </asp:LinkButton>
+                </div>
+                 <div class="input-group mt-2">
                     <asp:LinkButton ID="btnRecortar" runat="server" CssClass="btn btn-warning ml-2" OnClick="BtnRecortar_Click" style="display: none;">
                         <i class="bi bi-scissors"></i> Recortar Vídeo
                     </asp:LinkButton>
                       <asp:LinkButton ID="btnExtrairAudio" runat="server" CssClass="btn btn-warning ml-2" OnClick="BtnExtrairAudio_Click" style="display: none;">
                           <i class="bi bi-music"></i> Extrair Áudio
                       </asp:LinkButton>
-                    <asp:LinkButton ID="btnTranscrever" runat="server" CssClass="btn btn-info ml-2" OnClick="BtnTranscrever_Click" style="display: none;">
-                        <i class="bi bi-file-earmark-text"></i> Baixar Transcrição
-                    </asp:LinkButton>
+                   
                        <asp:LinkButton ID="btnInserirLegenda" runat="server" CssClass="btn btn-info ml-2" OnClick="BtnInserirLegenda_Click" style="display: none;">
                         <i class="bi bi-file-earmark-text"></i> Inserir Legenda em Video
                     </asp:LinkButton>
@@ -72,8 +75,6 @@
 
             </div>
         </div>
-
-
 
 
                 <asp:Label ID="lblTranscription" runat="server" CssClass="text-info" Text=""></asp:Label>

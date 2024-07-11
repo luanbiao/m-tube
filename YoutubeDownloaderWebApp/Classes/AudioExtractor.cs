@@ -1,49 +1,48 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
-using YoutubeDownloaderWebApp.Classes;
 
 public class AudioExtractor
 {
-    private string ffmpegPath;
+    private readonly string _ffmpegPath;
 
     public AudioExtractor(string ffmpegPath)
     {
-        this.ffmpegPath = ffmpegPath;
+        _ffmpegPath = ffmpegPath;
     }
 
-    public async Task ExtractAudioAsync(string videoPath, string audioPath)
+    public async Task ExtractAudioAsync(string inputVideoPath, string outputAudioPath)
     {
-        try
+        var arguments = $"-i \"{inputVideoPath}\" -vn -acodec libmp3lame \"{outputAudioPath}\"";
+
+        var processStartInfo = new ProcessStartInfo
         {
-            ProcessStartInfo processStartInfo = new ProcessStartInfo(ffmpegPath)
-            {
-                Arguments = $"-i \"{videoPath}\" -q:a 0 -map a \"{audioPath}\"",
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
+            FileName = _ffmpegPath,
+            Arguments = arguments,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
 
-            using (Process process = new Process())
-            {
-                process.StartInfo = processStartInfo;
-                process.Start();
-                Debug.WriteLine("Process started.");
-                await process.WaitForExitAsync(); // Usando a função de extensão
-                Debug.WriteLine("Process completed.");
+        using (var process = new Process { StartInfo = processStartInfo })
+        {
+            process.Start();
 
-                if (process.ExitCode != 0)
-                {
-                    throw new Exception($"FFmpeg exited with code {process.ExitCode}");
-                }
+            // Read output and error streams asynchronously
+            var outputTask = Task.Run(() => process.StandardOutput.ReadToEndAsync());
+            var errorTask = Task.Run(() => process.StandardError.ReadToEndAsync());
+
+            process.WaitForExit(); // Wait for the process to exit
+
+            // Get the output and error messages
+            string output = await outputTask;
+            string error = await errorTask;
+
+            if (process.ExitCode != 0)
+            {
+                throw new Exception($"FFmpeg process exited with code {process.ExitCode}: {error}");
             }
-
-            Debug.WriteLine($"Audio extracted successfully and saved to: {audioPath}");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error extracting audio: {ex.Message}");
-            throw;
         }
     }
 }

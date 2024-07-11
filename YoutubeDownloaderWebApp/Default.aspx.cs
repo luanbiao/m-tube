@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web.UI;
@@ -55,11 +57,20 @@ namespace YoutubeDownloaderWebApp
 
         protected async void BtnDownload_Click(object sender, EventArgs e)
         {
-            string sanitizedTitle = SanitizeFileName(_videoTitle);
+            string sanitizedTitle = TratarTextos.SanitizeFileName(_videoTitle);
             _outputPath = Server.MapPath($"~/Downloads/{sanitizedTitle}.mp4");
 
             try
             {
+                if (File.Exists(_outputPath))
+                {
+                    lblStatus.Text = "O vídeo já existe na pasta.";
+                    btnRecortar.Style["display"] = "inline-block";
+                    btnTranscrever.Style["display"] = "inline-block";
+                    btnExtrairAudio.Style["display"] = "inline-block";
+                    return;
+                }
+
                 lblStatus.Text = "Iniciando download...";
                 await _downloadManager.DownloadVideoAsync(txtVideoUrl.Text.Trim(), _outputPath);
                 if (File.Exists(_outputPath))
@@ -67,10 +78,9 @@ namespace YoutubeDownloaderWebApp
                     lblStatus.Text = "Download foi efetuado com sucesso!";
                     ScriptManager.RegisterStartupScript(this, GetType(), "showRecortarButton", "showRecortarButton();", true);
 
-                    btnRecortar.Style["display"] = "inline-block"; // Mostrar o botão de recorte
-                    btnTranscrever.Style["display"] = "inline-block"; // Mostrar o botão de transcrição
-                    btnExtrairAudio.Style["display"] = "inline-block"; // Mostrar o botão de extração de áudio
-
+                    btnRecortar.Style["display"] = "inline-block";
+                    btnTranscrever.Style["display"] = "inline-block";
+                    btnExtrairAudio.Style["display"] = "inline-block";
                 }
                 else
                 {
@@ -101,11 +111,18 @@ namespace YoutubeDownloaderWebApp
         {
             try
             {
+                string downloadsPath = Server.MapPath("~/Downloads");
+                string audioPath = Path.Combine(downloadsPath, $"{Path.GetFileNameWithoutExtension(_outputPath)}.mp3");
+
+                if (File.Exists(audioPath))
+                {
+                    lblStatus.Text = "O áudio já existe na pasta.";
+                    return;
+                }
+
                 lblStatus.Text = "Iniciando extração do áudio...";
                 Debug.WriteLine("Iniciando extração do áudio...");
 
-                string downloadsPath = Server.MapPath("~/Downloads");
-                string audioPath = Path.Combine(downloadsPath, $"{Path.GetFileNameWithoutExtension(_outputPath)}.mp3");
                 string ffmpegPath = @"C:\ffmpeg\bin\ffmpeg.exe"; // Altere para o caminho real do seu ffmpeg
 
                 AudioExtractor extractor = new AudioExtractor(ffmpegPath);
@@ -125,13 +142,24 @@ namespace YoutubeDownloaderWebApp
             }
         }
 
-
         protected async void BtnTranscrever_Click(object sender, EventArgs e)
         {
             try
             {
                 var videoUrl = txtVideoUrl.Text;
                 var downloadDirectory = Server.MapPath("~/Downloads/");
+                var sanitizedTitle = TratarTextos.SanitizeFileName(_videoTitle);
+                var srtPath = Path.Combine(downloadDirectory, $"{sanitizedTitle}.srt");
+
+                if (File.Exists(srtPath))
+                {
+                    lblStatus.Text = "A transcrição já existe na pasta.";
+                    lblStatus.ForeColor = System.Drawing.Color.Green;
+                    ScriptManager.RegisterStartupScript(this, GetType(), "showInserirLegendaButton", "showInserirLegendaButton();", true);
+                    btnInserirLegenda.Style["display"] = "inline-block"; // Mostrar o botão de inserir legenda
+                    return;
+                }
+
                 await _transcriptionManager.SaveTranscriptionAsSrtAsync(videoUrl, downloadDirectory);
 
                 lblStatus.Text = "Transcrição baixada com sucesso!";
@@ -154,23 +182,62 @@ namespace YoutubeDownloaderWebApp
             {
                 var videoUrl = txtVideoUrl.Text;
                 var downloadDirectory = Server.MapPath("~/Downloads/");
-                var sanitizedTitle = SanitizeFileName(_videoTitle);
+                var sanitizedTitle = TratarTextos.SanitizeFileName(_videoTitle);
                 var videoFilePath = Path.Combine(downloadDirectory, $"{sanitizedTitle}.mp4");
                 var subtitleFilePath = Path.Combine(downloadDirectory, $"{sanitizedTitle}.srt");
+                var outputFilePathWithSubtitle = Path.Combine(downloadDirectory, $"{sanitizedTitle}_com_legenda.mp4");
+                var outputFilePathBurned = Path.Combine(downloadDirectory, $"{sanitizedTitle}_com_legenda_embutida.mp4");
 
-                if (!File.Exists(videoFilePath) || !File.Exists(subtitleFilePath))
+                if (!File.Exists(videoFilePath))
                 {
-                    lblStatus.Text = "O vídeo ou a transcrição não foram encontrados.";
+                    lblStatus.Text = $"O vídeo não foi encontrado: {videoFilePath}";
                     lblStatus.ForeColor = System.Drawing.Color.Red;
                     return;
                 }
 
-                var outputFilePath = Path.Combine(downloadDirectory, $"{sanitizedTitle}_com_legenda.mp4");
-                // var ffmpegPath = Server.MapPath("~/ffmpeg/ffmpeg.exe"); // Caminho para o executável ffmpeg
-                // _transcriptionManager.EmbedSubtitles(videoFilePath, subtitleFilePath, outputFilePath, ffmpegPath);
+                if (!File.Exists(subtitleFilePath))
+                {
+                    lblStatus.Text = $"A transcrição não foi encontrada: {subtitleFilePath}";
+                    lblStatus.ForeColor = System.Drawing.Color.Red;
+                    return;
+                }
 
-                var conversion = await FFmpeg.Conversions.FromSnippet.AddSubtitle(videoFilePath, subtitleFilePath, outputFilePath);
-                await conversion.Start();
+                // Initialize FFmpeg
+                FFmpeg.SetExecutablesPath(@"C:\ffmpeg\bin");
+
+                // Change current directory to the download directory
+                Directory.SetCurrentDirectory(downloadDirectory);
+
+                // Log current directory
+                Debug.WriteLine($"Current Directory: {Directory.GetCurrentDirectory()}");
+
+                // Create conversion task for soft subtitles
+            /*    var conversionWithSubtitle = FFmpeg.Conversions.New()
+                    .AddParameter($"-i \"{sanitizedTitle}.mp4\"")
+                    .AddParameter($"-i \"{sanitizedTitle}.srt\"")
+                    .AddParameter("-c:v copy")
+                    .AddParameter("-c:a copy")
+                    .AddParameter("-c:s mov_text")
+                    .SetOutput($"{sanitizedTitle}_com_legenda.mp4");
+
+                // Log the FFmpeg command
+                Debug.WriteLine($"FFmpeg Command (soft subtitles): {conversionWithSubtitle.Build()}");
+
+                // Execute the conversion for soft subtitles
+                await conversionWithSubtitle.Start();*/
+
+                // Create conversion task for hard subtitles
+                var conversionBurnedSubtitle = FFmpeg.Conversions.New()
+                    .AddParameter($"-i \"{sanitizedTitle}.mp4\"")
+                    .AddParameter($"-vf subtitles={sanitizedTitle}.srt") // Ensure this correctly points to the embedded subtitles
+                    .AddParameter("-c:a copy")
+                    .SetOutput($"{sanitizedTitle}_com_legenda.mp4");
+
+                // Log the FFmpeg command
+                Debug.WriteLine($"FFmpeg Command (burned subtitles): {conversionBurnedSubtitle.Build()}");
+
+                // Execute the conversion for hard subtitles
+                await conversionBurnedSubtitle.Start();
 
                 lblStatus.Text = "Legenda inserida no vídeo com sucesso!";
                 lblStatus.ForeColor = System.Drawing.Color.Green;
@@ -179,15 +246,11 @@ namespace YoutubeDownloaderWebApp
             {
                 lblStatus.Text = $"Erro ao inserir legenda: {ex.Message}";
                 lblStatus.ForeColor = System.Drawing.Color.Red;
+                Debug.WriteLine($"Erro ao inserir legenda: {ex.Message}");
             }
         }
 
-        private string SanitizeFileName(string fileName)
-        {
-            // Remove caracteres inválidos do nome do arquivo
-            string invalidChars = new string(Path.GetInvalidFileNameChars());
-            string regexPattern = $"[{Regex.Escape(invalidChars)}]";
-            return Regex.Replace(fileName, regexPattern, "_");
-        }
+
+
     }
 }
